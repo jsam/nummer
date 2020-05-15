@@ -1,0 +1,7 @@
+[package]
+name = "num4r"
+version = "0.1.0"
+authors = ["sam <contact@justsam.io>"]
+edition = "2018"
+
+[dependencies]
