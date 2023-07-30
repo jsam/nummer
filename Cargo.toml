@@ -1,7 +1,10 @@
 [package]
-name = "num4r"
+name = "nummer"
+description = "minimal ndarray"
 version = "0.1.0"
 authors = ["sam <contact@justsam.io>"]
-edition = "2018"
+edition = "2021"
+license-file = "LICENSE"
+
 
 [dependencies]
