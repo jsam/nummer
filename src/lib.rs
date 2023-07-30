@@ -1,66 +1,106 @@
+use std::clone::Clone;
+use std::default::Default;
 
-enum NDAOrder {
-    RowMajorOrder,
-    ColumnMajorOrder, // NOTE: currently not supported!
+pub enum Order {
+    RowMajor,
+    ColumnMajor,
 }
 
-struct NDArray<'a, T: std::clone::Clone + std::default::Default>  {
-    shape: &'a [i64],
+struct NDArray<T>
+where
+    T: Clone + Default,
+{
+    shape: Vec<i64>,
     buffer: Vec<T>,
-    ordering: NDAOrder,
+
+    row_major_strides: Vec<i64>,
+    col_major_strides: Vec<i64>,
+    pub ordering: Order,
 }
 
-impl<'a, T: std::clone::Clone + std::default::Default> NDArray<'a, T> {
+impl<T> NDArray<T>
+where
+    T: Clone + Default,
+{
+    fn strides(shape: &[i64]) -> (Vec<i64>, Vec<i64>) {
+        let ndim = shape.len();
+        let mut row_major_strides = vec![0; ndim];
+        let mut col_major_strides = vec![0; ndim];
 
-    pub fn new(shape: &'a [i64]) -> Self {
+        // Calculate strides for row-major order
+        let mut stride = 1;
+        for i in (0..ndim).rev() {
+            row_major_strides[i] = stride;
+            stride *= shape[i];
+        }
+
+        // Calculate strides for column-major order
+        stride = 1;
+        for i in 0..ndim {
+            col_major_strides[i] = stride;
+            stride *= shape[i];
+        }
+
+        (row_major_strides, col_major_strides)
+    }
+
+    pub fn new(shape: &[i64]) -> Self {
         let mut size = 1;
         for el in shape.iter() {
             size *= el;
         }
-        
+        let (row_major_strides, col_major_strides) = Self::strides(shape);
+
         Self {
-            shape,
+            shape: shape.to_vec(),
             buffer: vec![Default::default(); size as usize],
-            ordering: NDAOrder::RowMajorOrder
+            row_major_strides,
+            col_major_strides,
+            ordering: Order::RowMajor,
         }
     }
 
     fn is_valid_dim(&self, index: &[i64]) -> bool {
-        if self.shape.len() != index.len() { return false }
+        if self.shape.len() != index.len() {
+            return false;
+        }
         for (pos, el) in index.iter().enumerate() {
-            if self.shape[pos] <= *el { return false }
+            if self.shape[pos] <= *el {
+                return false;
+            }
         }
         true
     }
 
     fn index(&self, index: &[i64]) -> Option<usize> {
-        if self.is_valid_dim(&index) {
-            let mut ind = 1;
+        if self.is_valid_dim(index) {
             let mut offset = 0;
 
-            for (pos, _) in index.iter().enumerate().rev() {
-                let nd: i64 = index[pos];
-                if pos == 0 {
-                    let _n_d: i64 = self.shape[pos + 1]; // Nd variable
-                    offset = _n_d * nd;
-                } else {
-                    let _n_d: i64 = self.shape[pos];  // Nd variable
-                    ind *= nd + _n_d;
+            match self.ordering {
+                Order::RowMajor => {
+                    for (pos, &nd) in index.iter().enumerate().rev() {
+                        offset += nd * self.row_major_strides[pos];
+                    }
+                }
+                Order::ColumnMajor => {
+                    for (pos, &nd) in index.iter().enumerate() {
+                        offset += nd * self.col_major_strides[pos];
+                    }
                 }
             }
 
-            return Some((ind + offset) as usize);
+            Some(offset as usize)
+        } else {
+            None
         }
-
-        None
     }
 
     pub fn set(&mut self, index: &[i64], element: T) -> bool {
-        match self.index(index)  {
+        match self.index(index) {
             None => return false,
             Some(i) => {
                 self.buffer[i] = element;
-                return true
+                return true;
             }
         }
     }
@@ -68,10 +108,9 @@ impl<'a, T: std::clone::Clone + std::default::Default> NDArray<'a, T> {
     pub fn get(&self, index: &[i64]) -> Option<&T> {
         match self.index(index) {
             None => None,
-            Some(i) => self.buffer.get(i)
+            Some(i) => self.buffer.get(i),
         }
     }
-
 }
 
 #[cfg(test)]
@@ -88,7 +127,6 @@ mod tests {
         assert_eq!(m.is_valid_dim(&[0, 1]), true);
         assert_eq!(m.is_valid_dim(&[0, 0]), true);
     }
-
 
     #[test]
     fn check_is_valid_dim2() {
@@ -120,7 +158,7 @@ mod tests {
     #[test]
     fn check_set_item() {
         let mut arr: NDArray<i32> = NDArray::new(&[3, 3, 3]);
-        
+
         let index = arr.index(&[2, 1, 1]);
         assert_eq!(index.unwrap(), 22);
 
