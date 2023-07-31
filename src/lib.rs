@@ -6,7 +6,7 @@ pub enum Order {
     ColumnMajor,
 }
 
-struct NDArray<T>
+pub struct NDArray<T>
 where
     T: Clone + Default,
 {
@@ -181,7 +181,7 @@ where
     }
 }
 
-struct IndexSequenceIter<'a, T>
+pub struct IndexSequenceIter<'a, T>
 where
     T: Clone + Default,
 {
